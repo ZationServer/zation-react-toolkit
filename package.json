@@ -1,0 +1,42 @@
+{
+  "name": "zation-react-toolkit",
+  "version": "0.0.1-dev.1",
+  "description": "Toolkit to integrate the zation client in a react project with hooks.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*",
+    "!.DS_Store"
+  ],
+  "scripts": {
+    "build": "gulp build",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "zation-client": "^3.0.0-dev.20",
+    "react": ">=16.8.0"
+  },
+  "devDependencies": {
+    "typescript": "^3.7.5",
+    "gulp": "4.0.2",
+    "gulp-optimize-js": "1.1.0",
+    "gulp-terser": "1.2.0",
+    "gulp-typescript": "^5.0.1",
+    "del": "^5.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ZationServer/zation-react-toolkit.git"
+  },
+  "author": {
+    "name": "Ing. Luca Gian Scaringella",
+    "email": "lucacode1@gmail.com"
+  },
+  "keywords": [
+    "react",
+    "toolkit",
+    "zation",
+    "client"
+  ],
+  "license": "MIT"
+}
