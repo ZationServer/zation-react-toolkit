@@ -13,8 +13,11 @@
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
-    "zation-client": "^3.0.0-dev.20",
+    "zation-client": "^3.0.0-dev.25",
     "react": ">=16.8.0"
+  },
+  "dependencies": {
+    "queric": "^2.0.0"
   },
   "devDependencies": {
     "typescript": "^3.7.5",
