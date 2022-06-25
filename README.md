@@ -31,7 +31,7 @@
 
 ## License
 
-MIT License
+zation-react-toolkit MIT License
 
 Copyright (c) 2022 Ing. Luca Gian Scaringella
 
