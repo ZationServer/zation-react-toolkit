@@ -4,8 +4,6 @@ GitHub: LucaCode
 Copyright(c) Ing. Luca Gian Scaringella
  */
 
-export type Default<T,D> = T extends undefined ? D : T;
-
 export type Primitive = undefined | null | boolean | string | number | Function;
 
 export type DeepReadonly<T> =

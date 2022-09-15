@@ -4,28 +4,44 @@ GitHub: LucaCode
 Copyright(c) Ing. Luca Gian Scaringella
  */
 
-import {APIDefinition, client, Client, Databox, DataboxOptions, ExtractClientAPIDefinition} from "zation-client";
-import {DeepReadonly, Default} from "./utils/types";
+import {
+    client,
+    Client,
+    Databox,
+    DataboxOptions,
+    AnyDataboxDef,
+    ExtractClientAPIDefinition,
+    ExtractDataboxDefContent,
+    ExtractDataboxDefFetchInput,
+    ExtractDataboxDefMember,
+    ExtractDataboxDefRemoteOptions,
+    FilterAPIDefinition
+} from "zation-client";
+import {DeepReadonly} from "./utils/types";
 import {useEffect, useRef} from "react";
 import {deepEqual} from "queric";
 import {useDirectEffect} from "./utils/useDirectEffect";
 import {useDataboxTracking} from "./useDataboxTracking";
 
-type ExtractDatabox<T extends APIDefinition,DN extends keyof T['databoxes']> =
-    Databox<T['databoxes'][DN]['content'], Default<T['databoxes'][DN]['member'],string>,
-        T['databoxes'][DN]['options'], T['databoxes'][DN]['fetchInput']>;
+type ExtractDataboxOptions<DEF> = DEF extends AnyDataboxDef ?
+    DataboxOptions<ExtractDataboxDefRemoteOptions<DEF>, ExtractDataboxDefFetchInput<DEF>> : never;
 
-type DataboxHookReturnType<T extends APIDefinition,DN extends keyof T['databoxes']> = ExtractDatabox<T,DN> &
-    {withTracking(): [DeepReadonly<T['databoxes'][DN]['content']> | undefined,ExtractDatabox<T,DN>]};
+type ExtractDatabox<DEF> = DEF extends AnyDataboxDef ?
+    Databox<ExtractDataboxDefContent<DEF>,ExtractDataboxDefMember<DEF>,
+        ExtractDataboxDefRemoteOptions<DEF>,ExtractDataboxDefFetchInput<DEF>> : never;
 
-export function useDatabox<DN extends keyof ExtractClientAPIDefinition<typeof client>['databoxes']>
-(identifier: DN,member?: Default<ExtractClientAPIDefinition<typeof client>['databoxes'][DN]['member'],string>,
- options?: DataboxOptions<ExtractClientAPIDefinition<typeof client>['databoxes'][DN]['options']>):
-    DataboxHookReturnType<ExtractClientAPIDefinition<typeof client>,DN>
-export function useDatabox<C extends Client,DN extends keyof ExtractClientAPIDefinition<C>['databoxes']>
-    (client: C,identifier: DN,member?: Default<ExtractClientAPIDefinition<C>['databoxes'][DN]['member'],string>,
-     options?: DataboxOptions<ExtractClientAPIDefinition<C>['databoxes'][DN]['options']>):
-    DataboxHookReturnType<ExtractClientAPIDefinition<ExtractClientAPIDefinition<C>>,DN>;
+type DataboxHookReturnType<DEF> = DEF extends AnyDataboxDef ? (ExtractDatabox<DEF> &
+    {withTracking(): [DeepReadonly<ExtractDataboxDefContent<DEF>> | undefined,ExtractDatabox<DEF>]}) : never;
+
+export function useDatabox<DN extends keyof FilterAPIDefinition<ExtractClientAPIDefinition<typeof client>,AnyDataboxDef>>
+(identifier: DN,member?: ExtractDataboxDefMember<FilterAPIDefinition<ExtractClientAPIDefinition<typeof client>,DN>>,
+ options?: ExtractDataboxOptions<FilterAPIDefinition<ExtractClientAPIDefinition<typeof client>,DN>>):
+    DataboxHookReturnType<FilterAPIDefinition<ExtractClientAPIDefinition<typeof client>,DN>>
+
+export function useDatabox<C extends Client,DN extends keyof FilterAPIDefinition<ExtractClientAPIDefinition<C>,AnyDataboxDef>>
+    (client: C,identifier: DN,member?: ExtractDataboxDefMember<FilterAPIDefinition<ExtractClientAPIDefinition<C>,DN>>,
+     options?: ExtractDataboxOptions<FilterAPIDefinition<ExtractClientAPIDefinition<C>,DN>>):
+    DataboxHookReturnType<FilterAPIDefinition<ExtractClientAPIDefinition<C>,DN>>;
 
 export function useDatabox(p1: any,p2?: any,p3?: any,p4?: any): any {
     const dbRef = useRef<Databox | null>(null);
