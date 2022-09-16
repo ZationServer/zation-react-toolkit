@@ -96,6 +96,7 @@ export function useDatabox(p1: any,p2?: any,p3?: any,p4?: any): any {
     },[p1,p2,p3,p4]);
     useEffect(() => cleanDb,[]);
 
-    dbRef.current.withTracking = () => [useDataboxTracking(dbRef.current),dbRef.current];
+    if(dbRef.current != null)
+        dbRef.current.withTracking = () => [useDataboxTracking(dbRef.current),dbRef.current];
     return dbRef.current;
 }
