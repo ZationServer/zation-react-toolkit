@@ -72,7 +72,7 @@ export function useDatabox(p1: any,p2?: any,p3?: any,p4?: any): any {
 
         if(db !== null) db.disconnect();
         dbRef.current = db = sourceClient.databox(identifier,options);
-        db.withTracking = () => [useDataboxTracking(dbRef.current),dbRef.current];
+        db.withTracking = () => [useDataboxTracking(db),db];
         return db;
     },[sourceClient,identifier,options]);
 
