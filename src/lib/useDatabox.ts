@@ -18,9 +18,8 @@ import {
     FilterAPIDefinition
 } from "zation-client";
 import {DeepReadonly} from "./utils/types";
-import {useEffect, useRef} from "react";
+import {useEffect, useMemo, useRef} from "react";
 import {deepEqual} from "queric";
-import {useDirectEffect} from "./utils/useDirectEffect";
 import {useDataboxTracking} from "./useDataboxTracking";
 
 type ExtractDataboxOptions<DEF> = DEF extends AnyDataboxDef ?
@@ -48,55 +47,41 @@ export function useDatabox(p1: any,p2?: any,p3?: any,p4?: any): any {
     const prevOptionsRef = useRef<DataboxOptions>({});
     const prevSourceClientRef = useRef<Client | null>(null);
 
-    const cleanDb = () => {
-        const db = dbRef.current;
-        if(db == null) return;
-        db.disconnect({
-            clearStorages: true,
-            cancelRemoteTasks: true,
-            clearLocalTransactions: true
-        });
-        dbRef.current = null;
+    let sourceClient: Client, identifier: string, member: any, options: DataboxOptions;
+    if(p1 instanceof Client) {
+        sourceClient = p1;
+        identifier = p2;
+        member = p3;
+        options = p4 ?? {};
+    }
+    else {
+        sourceClient = client;
+        identifier = p1;
+        member = p2;
+        options = p3 ?? {};
     }
 
-    useDirectEffect(() => {
-        let sourceClient: Client,
-            identifier: string,
-            member: any,
-            options: DataboxOptions;
-        if(p1 instanceof Client) {
-            sourceClient = p1;
-            identifier = p2;
-            member = p3;
-            options = p4 ?? {};
-        }
-        else {
-            sourceClient = client;
-            identifier = p1;
-            member = p2;
-            options = p3 ?? {};
-        }
-
+    const db = useMemo(() => {
         const sourceClientChanged = sourceClient !== prevSourceClientRef.current;
         prevSourceClientRef.current = sourceClient;
         const optionsChanged = !deepEqual(options, prevOptionsRef.current);
         prevOptionsRef.current = options;
 
         let db = dbRef.current;
+        if(!sourceClientChanged && !optionsChanged && db && db.identifier === identifier) return db;
 
-        if(!sourceClientChanged && !optionsChanged && db && db.identifier === identifier) {
-            if(db.member === member) return;
-            db.connect(member);
-        }
+        if(db !== null) db.disconnect();
+        dbRef.current = db = sourceClient.databox(identifier,options);
+        db.withTracking = () => [useDataboxTracking(dbRef.current),dbRef.current];
+        return db;
+    },[sourceClient,identifier,options]);
 
-        cleanDb();
-        db = sourceClient.databox(identifier,options);
-        dbRef.current = db;
-        db.connect(member);
-    },[p1,p2,p3,p4]);
-    useEffect(() => cleanDb,[]);
+    useEffect(() => {
+        dbRef.current?.connect(member);
+    },[dbRef.current,member]);
+    useEffect(() => () => {
+        dbRef.current?.disconnect();
+    },[dbRef.current]);
 
-    if(dbRef.current != null)
-        dbRef.current.withTracking = () => [useDataboxTracking(dbRef.current),dbRef.current];
-    return dbRef.current;
+    return db;
 }
