@@ -6,9 +6,8 @@ Copyright(c) Ing. Luca Gian Scaringella
 
 import {Databox} from "zation-client";
 import {DeepReadonly} from "./utils/types";
-import {useDirectEffect} from "./utils/useDirectEffect";
 import {useForceUpdate} from "./utils/useForceUpdate";
-import {useRef} from "react";
+import {useRef, useEffect} from "react";
 
 type ExtractDataboxContent<T extends Databox> = T extends Databox<infer C,any,any,any> ? C : any;
 
@@ -16,7 +15,7 @@ export function useDataboxTracking<T extends Databox<any,any,any,any>>(databox: 
     const forceUpdate = useForceUpdate();
     const dbChangeHandlerRef = useRef<() => void>(() => forceUpdate());
 
-    useDirectEffect(() => {
+    useEffect(() => {
         databox.onDataChange(dbChangeHandlerRef.current);
         return () => databox.offDataChange(dbChangeHandlerRef.current);
     },[databox]);
