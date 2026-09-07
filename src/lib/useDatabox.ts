@@ -45,10 +45,6 @@ export function useDatabox<C extends Client,DN extends keyof FilterAPIDefinition
     DataboxHookReturnType<FilterAPIDefinition<ExtractClientAPIDefinition<C>,DN>>;
 
 export function useDatabox(p1: any,p2?: any,p3?: any,p4?: any): any {
-    const dbRef = useRef<Databox | null>(null);
-    const prevOptionsRef = useRef<DataboxOptions>({});
-    const prevSourceClientRef = useRef<Client | null>(null);
-
     let sourceClient: Client, identifier: string, member: any, options: DataboxOptions;
     if(p1 instanceof Client) {
         sourceClient = p1;
@@ -63,27 +59,27 @@ export function useDatabox(p1: any,p2?: any,p3?: any,p4?: any): any {
         options = p3 ?? {};
     }
 
+    //keep the references stable as long as the content is deep equal
+    const optionsRef = useRef<DataboxOptions>(options);
+    if(!deepEqual(options,optionsRef.current)) optionsRef.current = options;
+    const stableOptions = optionsRef.current;
+
+    const memberRef = useRef<any>(member);
+    if(!deepEqual(member,memberRef.current)) memberRef.current = member;
+    const stableMember = memberRef.current;
+
     const db = useMemo(() => {
-        const sourceClientChanged = sourceClient !== prevSourceClientRef.current;
-        prevSourceClientRef.current = sourceClient;
-        const optionsChanged = !deepEqual(options, prevOptionsRef.current);
-        prevOptionsRef.current = options;
-
-        let db = dbRef.current;
-        if(!sourceClientChanged && !optionsChanged && db && db.identifier === identifier) return db;
-
-        if(db !== null) db.disconnect();
-        dbRef.current = db = sourceClient.databox(identifier,options);
-        db.withTracking = () => [useDataboxTracking(db),db];
+        const db = sourceClient.databox(identifier,stableOptions);
+        (db as any).withTracking = () => [useDataboxTracking(db),db];
         return db;
-    },[sourceClient,identifier,options]);
+    },[sourceClient,identifier,stableOptions]);
 
     useEffect(() => {
-        dbRef.current?.connect(member);
-    },[dbRef.current,member]);
-    useEffect(() => () => {
-        dbRef.current?.disconnect();
-    },[dbRef.current]);
+        db.connect(stableMember).catch(() => {});
+        return () => {
+            db.disconnect().catch(() => {});
+        };
+    },[db,stableMember]);
 
     return db;
 }
