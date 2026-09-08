@@ -24,7 +24,8 @@
     "gulp": "^5.0.1",
     "gulp-terser": "1.2.0",
     "gulp-typescript": "^5.0.1",
-    "del": "^5.1.0"
+    "del": "^5.1.0",
+    "@types/node": "^20.11.0"
   },
   "overrides": {
     "gulp-typescript": {
