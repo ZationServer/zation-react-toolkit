@@ -10,14 +10,16 @@
   ],
   "scripts": {
     "build": "gulp build",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "test": "npm run build && node --test test/*.test.js"
   },
   "peerDependencies": {
     "zation-client": "^3.0.0-beta.1",
     "react": ">=16.8.0"
   },
   "dependencies": {
-    "queric": "^2.0.0"
+    "queric": "^2.0.0",
+    "use-sync-external-store": "^1.7.0"
   },
   "devDependencies": {
     "typescript": "^4.6.4",
@@ -25,7 +27,10 @@
     "gulp-terser": "1.2.0",
     "gulp-typescript": "^5.0.1",
     "del": "^5.1.0",
-    "@types/node": "^20.11.0"
+    "@types/node": "^20.11.0",
+    "@types/use-sync-external-store": "^1.5.0",
+    "react-dom": "^19.2.8",
+    "jsdom": "^26.1.0"
   },
   "overrides": {
     "gulp-typescript": {

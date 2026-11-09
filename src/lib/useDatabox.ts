@@ -21,6 +21,7 @@ import {DeepReadonly} from "./utils/types";
 import {useEffect, useMemo, useRef} from "react";
 import {deepEqual} from "queric";
 import {useDataboxTracking} from "./useDataboxTracking";
+import {useDataboxSelector} from "./useDataboxSelector";
 
 type ExtractDataboxOptions<DEF> = DEF extends AnyDataboxDef ?
     DataboxOptions<ExtractDataboxDefRemoteOptions<DEF>, ExtractDataboxDefFetchInput<DEF>> : never;
@@ -30,7 +31,16 @@ type ExtractDatabox<DEF> = DEF extends AnyDataboxDef ?
         ExtractDataboxDefRemoteOptions<DEF>,ExtractDataboxDefFetchInput<DEF>> : never;
 
 interface TrackableDatabox<DEF extends AnyDataboxDef> {
+    /**
+     * Returns the data and re-renders the component on every data change.
+     */
     withTracking(): [DeepReadonly<ExtractDataboxDefContent<DEF>> | undefined,ExtractDatabox<DEF>];
+    /**
+     * Returns a selected part of the data and re-renders the component only when that part changes
+     * (see useDataboxSelector).
+     */
+    withSelector<S>(selector: (data: DeepReadonly<ExtractDataboxDefContent<DEF>> | undefined) => S,
+                    isEqual?: (a: S, b: S) => boolean): [S,ExtractDatabox<DEF>];
 }
 type DataboxHookReturnType<DEF> = DEF extends AnyDataboxDef ? (ExtractDatabox<DEF> & TrackableDatabox<DEF>) : never;
 
@@ -71,6 +81,8 @@ export function useDatabox(p1: any,p2?: any,p3?: any,p4?: any): any {
     const db = useMemo(() => {
         const db = sourceClient.databox(identifier,stableOptions);
         (db as any).withTracking = () => [useDataboxTracking(db),db];
+        (db as any).withSelector = (selector: (data: any) => any, isEqual?: (a: any, b: any) => boolean) =>
+            [useDataboxSelector(db,selector,isEqual),db];
         return db;
     },[sourceClient,identifier,stableOptions]);
 
