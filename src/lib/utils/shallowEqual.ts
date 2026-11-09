@@ -5,11 +5,7 @@ Copyright(c) Ing. Luca Gian Scaringella
  */
 
 /**
- * Compares two values one level deep: the same items of two arrays,
- * or the same values under the same keys of two objects (each by Object.is).
- * Useful as the equality function of a selector that builds a new array or object.
- * @param a
- * @param b
+ * Compares two arrays or objects one level deep.
  */
 export function shallowEqual(a: any, b: any): boolean {
     if(Object.is(a,b)) return true;

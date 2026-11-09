@@ -12,11 +12,7 @@ export interface DataboxSnapshot {
     readonly data: any;
 }
 
-/**
- * The databox as an external store: a new snapshot after each data change.
- * The snapshot wraps the data, so a change is seen also with a client that changes its data in place.
- * @param databox
- */
+//The snapshot wraps the data, so a client that changes its data in place works as well.
 export function useDataboxSnapshot(databox: Databox<any,any,any,any>) {
     const snapshotRef = useRef<DataboxSnapshot | null>(null);
     const subscribe = useCallback((onChange: () => void) => {

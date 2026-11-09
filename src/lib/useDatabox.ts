@@ -31,14 +31,7 @@ type ExtractDatabox<DEF> = DEF extends AnyDataboxDef ?
         ExtractDataboxDefRemoteOptions<DEF>,ExtractDataboxDefFetchInput<DEF>> : never;
 
 interface TrackableDatabox<DEF extends AnyDataboxDef> {
-    /**
-     * Returns the data and re-renders the component on every data change.
-     */
     withTracking(): [DeepReadonly<ExtractDataboxDefContent<DEF>> | undefined,ExtractDatabox<DEF>];
-    /**
-     * Returns a selected part of the data and re-renders the component only when that part changes
-     * (see useDataboxSelector).
-     */
     withSelector<S>(selector: (data: DeepReadonly<ExtractDataboxDefContent<DEF>> | undefined) => S,
                     isEqual?: (a: S, b: S) => boolean): [S,ExtractDatabox<DEF>];
 }
