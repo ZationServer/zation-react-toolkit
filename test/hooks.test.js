@@ -6,7 +6,7 @@ Copyright(c) Ing. Luca Gian Scaringella
 Tests of the built hooks (npm test builds first) in a DOM of jsdom with React's act.
  */
 
-const {test} = require('node:test');
+const {test, mock} = require('node:test');
 const assert = require('node:assert/strict');
 const {JSDOM} = require('jsdom');
 
@@ -21,10 +21,13 @@ const {createRoot} = require('react-dom/client');
 const {useDataboxSelector} = require('../dist/lib/useDataboxSelector');
 const {useDataboxTracking} = require('../dist/lib/useDataboxTracking');
 const {shallowEqual} = require('../dist/lib/utils/shallowEqual');
+const {useDatabox} = require('../dist/lib/useDatabox');
 const {useConnected} = require('../dist/lib/useConnected');
 const {useAuthenticated} = require('../dist/lib/useAuthenticated');
 const {useAuthTokenPayload} = require('../dist/lib/useAuthTokenPayload');
 const {useRequest} = require('../dist/lib/useRequest');
+const {DATABOX_RELEASE_DELAY} = require('../dist/lib/utils/sharedDatabox');
+const {Client} = require('zation-client');
 
 /** A databox as the zation client hands it out: data and its change event. */
 function fakeDatabox(data) {
@@ -123,6 +126,81 @@ test('shallowEqual compares one level deep', () => {
     assert.equal(shallowEqual({a: 1}, {a: 1, b: undefined}), false);
     assert.equal(shallowEqual([1], {0: 1}), false);
     assert.equal(shallowEqual(null, null), true);
+});
+
+/** A client as useDatabox sees it: its databoxes count their connects and disconnects. */
+function fakeDataboxClient() {
+    const client = Object.create(Client.prototype);
+    client.created = [];
+    client.databox = (identifier) => {
+        const db = fakeDatabox(undefined);
+        db.identifier = identifier;
+        db.connects = [];
+        db.disconnects = 0;
+        db.connect = async (member) => {db.connects.push(member);};
+        db.disconnect = async () => {db.disconnects++;};
+        client.created.push(db);
+        return db;
+    };
+    return client;
+}
+
+function Box({client, identifier, member}) {
+    const [data] = useDatabox(client, identifier, member).withTracking();
+    return React.createElement('span', null, String(data));
+}
+
+test('useDatabox shares one databox and disconnects it a moment after the last component', async () => {
+    mock.timers.enable({apis: ['setTimeout']});
+    try {
+        const client = fakeDataboxClient();
+        const first = await render(React.createElement(Box, {client, identifier: 'cinema'}));
+        const second = await render(React.createElement(Box, {client, identifier: 'cinema'}));
+        assert.equal(client.created.length, 1);
+        const [db] = client.created;
+        assert.deepEqual(db.connects, [undefined]);
+
+        await act(async () => db.set(7));
+        assert.equal(first.container.textContent, '7');
+        assert.equal(second.container.textContent, '7');
+
+        await first.unmount();
+        await second.unmount();
+        mock.timers.tick(DATABOX_RELEASE_DELAY - 1);
+        assert.equal(db.disconnects, 0);
+        //mounted again within the delay: same databox, no new connect
+        const again = await render(React.createElement(Box, {client, identifier: 'cinema'}));
+        assert.equal(again.container.textContent, '7');
+        assert.equal(client.created.length, 1);
+        assert.equal(db.connects.length, 1);
+
+        await again.unmount();
+        mock.timers.tick(DATABOX_RELEASE_DELAY);
+        assert.equal(db.disconnects, 1);
+        const later = await render(React.createElement(Box, {client, identifier: 'cinema'}));
+        assert.equal(client.created.length, 2);
+        assert.deepEqual(client.created[1].connects, [undefined]);
+        await later.unmount();
+    }
+    finally {mock.timers.reset();}
+});
+
+test('useDatabox keeps one databox per member', async () => {
+    mock.timers.enable({apis: ['setTimeout']});
+    try {
+        const client = fakeDataboxClient();
+        const one = await render(React.createElement(Box, {client, identifier: 'room', member: {id: 1}}));
+        const same = await render(React.createElement(Box, {client, identifier: 'room', member: {id: 1}}));
+        const two = await render(React.createElement(Box, {client, identifier: 'room', member: {id: 2}}));
+        assert.equal(client.created.length, 2);
+        assert.deepEqual(client.created.map((db) => db.connects), [[{id: 1}], [{id: 2}]]);
+        await one.unmount();
+        await same.unmount();
+        await two.unmount();
+        mock.timers.tick(DATABOX_RELEASE_DELAY);
+        assert.deepEqual(client.created.map((db) => db.disconnects), [1, 1]);
+    }
+    finally {mock.timers.reset();}
 });
 
 /** A client with the connection and token events. */

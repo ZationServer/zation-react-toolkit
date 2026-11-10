@@ -22,6 +22,7 @@ import {useEffect, useMemo, useRef} from "react";
 import {deepEqual} from "queric";
 import {useDataboxTracking} from "./useDataboxTracking";
 import {useDataboxSelector} from "./useDataboxSelector";
+import {acquireSharedDatabox, getSharedDatabox} from "./utils/sharedDatabox";
 
 type ExtractDataboxOptions<DEF> = DEF extends AnyDataboxDef ?
     DataboxOptions<ExtractDataboxDefRemoteOptions<DEF>, ExtractDataboxDefFetchInput<DEF>> : never;
@@ -37,11 +38,21 @@ interface TrackableDatabox<DEF extends AnyDataboxDef> {
 }
 type DataboxHookReturnType<DEF> = DEF extends AnyDataboxDef ? (ExtractDatabox<DEF> & TrackableDatabox<DEF>) : never;
 
+/**
+ * Connects the Databox while the component is mounted.
+ * Components with the same client, identifier, member and options share one Databox,
+ * it disconnects 3 s after the last of them unmounted.
+ */
 export function useDatabox<DN extends keyof FilterAPIDefinition<ExtractClientAPIDefinition<typeof client>,AnyDataboxDef>>
 (identifier: DN,member?: ExtractDataboxDefMember<FilterAPIDefinition<ExtractClientAPIDefinition<typeof client>,DN>>,
  options?: ExtractDataboxOptions<FilterAPIDefinition<ExtractClientAPIDefinition<typeof client>,DN>>):
     DataboxHookReturnType<FilterAPIDefinition<ExtractClientAPIDefinition<typeof client>,DN>>
 
+/**
+ * Connects the Databox while the component is mounted.
+ * Components with the same client, identifier, member and options share one Databox,
+ * it disconnects 3 s after the last of them unmounted.
+ */
 export function useDatabox<C extends Client,DN extends keyof FilterAPIDefinition<ExtractClientAPIDefinition<C>,AnyDataboxDef>>
     (client: C,identifier: DN,member?: ExtractDataboxDefMember<FilterAPIDefinition<ExtractClientAPIDefinition<C>,DN>>,
      options?: ExtractDataboxOptions<FilterAPIDefinition<ExtractClientAPIDefinition<C>,DN>>):
@@ -71,20 +82,16 @@ export function useDatabox(p1: any,p2?: any,p3?: any,p4?: any): any {
     if(!deepEqual(member,memberRef.current)) memberRef.current = member;
     const stableMember = memberRef.current;
 
-    const db = useMemo(() => {
+    //components with the same databox share one connection
+    const shared = useMemo(() => getSharedDatabox(sourceClient,identifier,stableMember,stableOptions,() => {
         const db = sourceClient.databox(identifier,stableOptions);
         (db as any).withTracking = () => [useDataboxTracking(db),db];
         (db as any).withSelector = (selector: (data: any) => any, isEqual?: (a: any, b: any) => boolean) =>
             [useDataboxSelector(db,selector,isEqual),db];
         return db;
-    },[sourceClient,identifier,stableOptions]);
+    }),[sourceClient,identifier,stableMember,stableOptions]);
 
-    useEffect(() => {
-        db.connect(stableMember).catch(() => {});
-        return () => {
-            db.disconnect().catch(() => {});
-        };
-    },[db,stableMember]);
+    useEffect(() => acquireSharedDatabox(shared),[shared]);
 
-    return db;
+    return shared.databox;
 }
