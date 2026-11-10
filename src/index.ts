@@ -5,7 +5,7 @@ Copyright(c) Ing. Luca Gian Scaringella
  */
 
 import {useClient} from "./lib/useClient";
-import {useDatabox} from "./lib/useDatabox";
+import {useDatabox, UseDataboxOptions} from "./lib/useDatabox";
 import {useDataboxTracking} from "./lib/useDataboxTracking";
 import {useDataboxSelector} from "./lib/useDataboxSelector";
 import {useConnected} from "./lib/useConnected";
@@ -17,6 +17,7 @@ import {shallowEqual} from "./lib/utils/shallowEqual";
 export {
     useClient,
     useDatabox,
+    UseDataboxOptions,
     useDataboxTracking,
     useDataboxSelector,
     useConnected,

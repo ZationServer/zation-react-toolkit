@@ -203,6 +203,61 @@ test('useDatabox keeps one databox per member', async () => {
     finally {mock.timers.reset();}
 });
 
+function BoxWhen({client, identifier, enabled}) {
+    const [data] = useDatabox(client, identifier, undefined, {enabled}).withTracking();
+    return React.createElement('span', null, String(data));
+}
+
+test('useDatabox connects only while enabled', async () => {
+    mock.timers.enable({apis: ['setTimeout']});
+    try {
+        const client = fakeDataboxClient();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+        const show = (enabled) => act(async () => root.render(React.createElement(BoxWhen, {client, identifier: 'identity', enabled})));
+
+        await show(false);
+        assert.equal(container.textContent, 'undefined');
+        mock.timers.tick(DATABOX_RELEASE_DELAY);
+        assert.deepEqual(client.created.map((db) => db.connects), [[]]);
+
+        await show(true);
+        const [db] = client.created;
+        assert.deepEqual(db.connects, [undefined]);
+        await act(async () => db.set('luca'));
+        assert.equal(container.textContent, 'luca');
+
+        await show(false);
+        mock.timers.tick(DATABOX_RELEASE_DELAY - 1);
+        assert.equal(db.disconnects, 0);
+        mock.timers.tick(1);
+        assert.equal(db.disconnects, 1);
+        await act(async () => root.unmount());
+    }
+    finally {mock.timers.reset();}
+});
+
+test('useDatabox shares one databox between an enabled and a disabled component', async () => {
+    mock.timers.enable({apis: ['setTimeout']});
+    try {
+        const client = fakeDataboxClient();
+        const off = await render(React.createElement(BoxWhen, {client, identifier: 'cinema', enabled: false}));
+        const on = await render(React.createElement(BoxWhen, {client, identifier: 'cinema', enabled: true}));
+        assert.equal(client.created.length, 1);
+        const [db] = client.created;
+        assert.deepEqual(db.connects, [undefined]);
+        await act(async () => db.set(3));
+        assert.equal(on.container.textContent, '3');
+        assert.equal(off.container.textContent, '3');
+        await on.unmount();
+        mock.timers.tick(DATABOX_RELEASE_DELAY);
+        assert.equal(db.disconnects, 1);
+        await off.unmount();
+    }
+    finally {mock.timers.reset();}
+});
+
 /** A client with the connection and token events. */
 function fakeEventClient() {
     const listeners = {};
