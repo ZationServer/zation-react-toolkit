@@ -21,6 +21,10 @@ const {createRoot} = require('react-dom/client');
 const {useDataboxSelector} = require('../dist/lib/useDataboxSelector');
 const {useDataboxTracking} = require('../dist/lib/useDataboxTracking');
 const {shallowEqual} = require('../dist/lib/utils/shallowEqual');
+const {useConnected} = require('../dist/lib/useConnected');
+const {useAuthenticated} = require('../dist/lib/useAuthenticated');
+const {useAuthTokenPayload} = require('../dist/lib/useAuthTokenPayload');
+const {useRequest} = require('../dist/lib/useRequest');
 
 /** A databox as the zation client hands it out: data and its change event. */
 function fakeDatabox(data) {
@@ -119,4 +123,116 @@ test('shallowEqual compares one level deep', () => {
     assert.equal(shallowEqual({a: 1}, {a: 1, b: undefined}), false);
     assert.equal(shallowEqual([1], {0: 1}), false);
     assert.equal(shallowEqual(null, null), true);
+});
+
+/** A client with the connection and token events. */
+function fakeEventClient() {
+    const listeners = {};
+    const client = {connected: false, authenticated: false, authTokenPayload: null};
+    for (const event of ['Connect', 'Disconnect', 'Authenticate', 'Deauthenticate']) {
+        listeners[event] = new Set();
+        client['on' + event] = (listener) => listeners[event].add(listener);
+        client['off' + event] = (listener) => listeners[event].delete(listener);
+    }
+    client.emit = (event) => {for (const listener of listeners[event]) listener();};
+    client.listenerCount = () => Object.values(listeners).reduce((sum, set) => sum + set.size, 0);
+    return client;
+}
+
+test('useConnected, useAuthenticated and useAuthTokenPayload follow the client', async () => {
+    const client = fakeEventClient();
+    function State() {
+        const connected = useConnected(client);
+        const authenticated = useAuthenticated(client);
+        const payload = useAuthTokenPayload(client);
+        return React.createElement('span', null,
+            `${connected ? 'on' : 'off'} ${authenticated ? 'in' : 'out'} ${payload ? payload.name : '-'}`);
+    }
+    const {container, unmount} = await render(React.createElement(State));
+    assert.equal(container.textContent, 'off out -');
+
+    await act(async () => {client.connected = true; client.emit('Connect');});
+    assert.equal(container.textContent, 'on out -');
+    await act(async () => {
+        client.authenticated = true;
+        client.authTokenPayload = {name: 'Tim'};
+        client.emit('Authenticate');
+    });
+    assert.equal(container.textContent, 'on in Tim');
+    //a new token with the same login
+    await act(async () => {client.authTokenPayload = {name: 'Tom'}; client.emit('Authenticate');});
+    assert.equal(container.textContent, 'on in Tom');
+    await act(async () => {
+        client.connected = false;
+        client.authenticated = false;
+        client.authTokenPayload = null;
+        client.emit('Disconnect');
+        client.emit('Deauthenticate');
+    });
+    assert.equal(container.textContent, 'off out -');
+
+    await unmount();
+    assert.equal(client.listenerCount(), 0);
+});
+
+test('useRequest sends once, again with reload, keeps the data on an error and waits while disabled', async () => {
+    const answers = [];
+    let calls = 0;
+    const request = () => {
+        calls++;
+        const answer = answers.shift();
+        return answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer);
+    };
+    let state;
+    function Ports({enabled}) {
+        state = useRequest(request, enabled);
+        return React.createElement('span', null, String(state.data));
+    }
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => root.render(React.createElement(Ports, {enabled: false})));
+    assert.equal(calls, 0);
+    assert.equal(state.data, undefined);
+
+    answers.push(['a']);
+    await act(async () => root.render(React.createElement(Ports, {enabled: true})));
+    assert.equal(calls, 1);
+    assert.deepEqual(state.data, ['a']);
+    //a render does not ask again
+    await act(async () => root.render(React.createElement(Ports, {enabled: true})));
+    assert.equal(calls, 1);
+
+    const failure = new Error('device not reachable');
+    answers.push(failure);
+    await act(async () => state.reload());
+    assert.equal(calls, 2);
+    assert.deepEqual(state.data, ['a']);
+    assert.equal(state.error, failure);
+
+    answers.push(['a', 'b']);
+    await act(async () => state.reload());
+    assert.deepEqual(state.data, ['a', 'b']);
+    assert.equal(state.error, undefined);
+    await act(async () => root.unmount());
+});
+
+test('useRequest drops the answer of an older request', async () => {
+    const pending = [];
+    const request = () => new Promise((resolve) => pending.push(resolve));
+    let state;
+    function Ports() {
+        state = useRequest(request);
+        return null;
+    }
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    await act(async () => root.render(React.createElement(Ports)));
+    await act(async () => state.reload());
+    assert.equal(pending.length, 2);
+    await act(async () => pending[1]('new'));
+    await act(async () => pending[0]('old'));
+    assert.equal(state.data, 'new');
+    await act(async () => root.unmount());
 });

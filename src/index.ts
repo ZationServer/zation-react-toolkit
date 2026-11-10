@@ -8,6 +8,10 @@ import {useClient} from "./lib/useClient";
 import {useDatabox} from "./lib/useDatabox";
 import {useDataboxTracking} from "./lib/useDataboxTracking";
 import {useDataboxSelector} from "./lib/useDataboxSelector";
+import {useConnected} from "./lib/useConnected";
+import {useAuthenticated} from "./lib/useAuthenticated";
+import {useAuthTokenPayload} from "./lib/useAuthTokenPayload";
+import {useRequest, RequestState} from "./lib/useRequest";
 import {shallowEqual} from "./lib/utils/shallowEqual";
 
 export {
@@ -15,5 +19,10 @@ export {
     useDatabox,
     useDataboxTracking,
     useDataboxSelector,
+    useConnected,
+    useAuthenticated,
+    useAuthTokenPayload,
+    useRequest,
+    RequestState,
     shallowEqual
 };
