@@ -292,6 +292,32 @@ test('useDatabox reports a failed connect to console.error, with onError there i
     finally {logged.mock.restore();}
 });
 
+test('useDatabox tells a failed connect to every onError, also when one throws', async () => {
+    const error = new Error('No access'), thrown = new Error('Broken listener');
+    const logged = mock.method(console, 'error', () => {});
+    const unhandled = [];
+    const onUnhandled = (reason) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandled);
+    try {
+        const client = fakeDataboxClient({connectError: error});
+        const errors = [];
+        const both = await render(React.createElement(React.Fragment, null,
+            React.createElement(BoxWithError, {client, identifier: 'shared', onError: () => {throw thrown;}}),
+            React.createElement(BoxWithError, {client, identifier: 'shared', onError: (err) => errors.push(err)})));
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(client.created.length, 1);
+        assert.deepEqual(errors, [error]);
+        assert.deepEqual(unhandled, []);
+        assert.equal(logged.mock.callCount(), 1);
+        assert.deepEqual(logged.mock.calls[0].arguments, ['The error listener of the Databox shared threw.', thrown]);
+        await both.unmount();
+    }
+    finally {
+        process.off('unhandledRejection', onUnhandled);
+        logged.mock.restore();
+    }
+});
+
 /** A client with the connection, token and reconnect events. */
 function fakeEventClient() {
     const listeners = {};

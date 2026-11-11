@@ -81,13 +81,15 @@ export function getSharedDatabox(client: Client, identifier: string, member: any
 /**
  * Tells a failed connect to the error listeners of the components that hold the Databox,
  * without one to console.error. The Databox stays active and connects when the connection comes back.
+ * A listener that throws goes to console.error, the others still get the error.
  */
 function reportConnectError(shared: SharedDatabox, error: Error) {
     let reported = false;
     for(const listener of shared.errorListeners.slice()) {
         if(listener.current === undefined) continue;
         reported = true;
-        listener.current(error);
+        try {listener.current(error);}
+        catch (listenerError) {console.error(`The error listener of the Databox ${shared.identifier} threw.`,listenerError);}
     }
     if(!reported) console.error(`The Databox ${shared.identifier} did not connect.`,error);
 }
