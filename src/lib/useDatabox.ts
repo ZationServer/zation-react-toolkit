@@ -48,6 +48,14 @@ export interface UseDataboxOptions {
      * @default true
      */
     enabled?: boolean;
+    /**
+     * Gets the error when the Databox did not connect while the component holds it,
+     * e.g., no access or an unknown identifier. Without it, the error goes to console.error
+     * (unless another component that holds the Databox has an onError).
+     * The Databox stays active and connects when the connection comes back.
+     * It is not part of the options that the components share by.
+     */
+    onError?: (error: Error) => void;
 }
 
 /**
@@ -86,7 +94,10 @@ export function useDatabox(p1: any,p2?: any,p3?: any,p4?: any): any {
         member = p2;
         hookOptions = p3 ?? {};
     }
-    const {enabled = true,...options} = hookOptions;
+    const {enabled = true,onError,...options} = hookOptions;
+    //the latest onError, without connecting again when it changes
+    const onErrorRef = useRef(onError);
+    useEffect(() => {onErrorRef.current = onError;});
 
     //keep the references stable as long as the content is deep equal
     const optionsRef = useRef<DataboxOptions>(options);
@@ -106,7 +117,7 @@ export function useDatabox(p1: any,p2?: any,p3?: any,p4?: any): any {
         return db;
     }),[sourceClient,identifier,stableMember,stableOptions]);
 
-    useEffect(() => enabled ? acquireSharedDatabox(shared) : undefined,[shared,enabled]);
+    useEffect(() => enabled ? acquireSharedDatabox(shared,onErrorRef) : undefined,[shared,enabled]);
 
     return shared.databox;
 }

@@ -130,7 +130,7 @@ test('shallowEqual compares one level deep', () => {
 });
 
 /** A client as useDatabox sees it: its databoxes count their connects and disconnects. */
-function fakeDataboxClient() {
+function fakeDataboxClient({connectError} = {}) {
     const client = Object.create(Client.prototype);
     client.created = [];
     client.databox = (identifier) => {
@@ -138,7 +138,10 @@ function fakeDataboxClient() {
         db.identifier = identifier;
         db.connects = [];
         db.disconnects = 0;
-        db.connect = async (member) => {db.connects.push(member);};
+        db.connect = async (member) => {
+            db.connects.push(member);
+            if(connectError) throw connectError;
+        };
         db.disconnect = async () => {db.disconnects++;};
         client.created.push(db);
         return db;
@@ -257,6 +260,36 @@ test('useDatabox shares one databox between an enabled and a disabled component'
         await off.unmount();
     }
     finally {mock.timers.reset();}
+});
+
+function BoxWithError({client, identifier, onError}) {
+    const [data] = useDatabox(client, identifier, undefined, {onError}).withTracking();
+    return React.createElement('span', null, String(data));
+}
+
+test('useDatabox reports a failed connect to console.error, with onError there instead', async () => {
+    const error = new Error('No access');
+    const logged = mock.method(console, 'error', () => {});
+    try {
+        const client = fakeDataboxClient({connectError: error});
+        const plain = await render(React.createElement(Box, {client, identifier: 'secret'}));
+        assert.equal(logged.mock.callCount(), 1);
+        assert.deepEqual(logged.mock.calls[0].arguments, ['The Databox secret did not connect.', error]);
+        await plain.unmount();
+
+        const errors = [];
+        const handled = await render(React.createElement(BoxWithError, {client, identifier: 'other',
+            onError: (err) => errors.push(err)}));
+        assert.deepEqual(errors, [error]);
+        assert.equal(logged.mock.callCount(), 1);
+        //the options do not include onError: a component with another one shares the databox
+        const again = await render(React.createElement(BoxWithError, {client, identifier: 'other',
+            onError: () => {}}));
+        assert.equal(client.created.filter((db) => db.identifier === 'other').length, 1);
+        await again.unmount();
+        await handled.unmount();
+    }
+    finally {logged.mock.restore();}
 });
 
 /** A client with the connection, token and reconnect events. */
