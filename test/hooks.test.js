@@ -23,6 +23,7 @@ const {useDataboxTracking} = require('../dist/lib/useDataboxTracking');
 const {shallowEqual} = require('../dist/lib/utils/shallowEqual');
 const {useDatabox} = require('../dist/lib/useDatabox');
 const {useConnected} = require('../dist/lib/useConnected');
+const {useNextReconnect} = require('../dist/lib/useNextReconnect');
 const {useAuthenticated} = require('../dist/lib/useAuthenticated');
 const {useAuthTokenPayload} = require('../dist/lib/useAuthTokenPayload');
 const {useRequest} = require('../dist/lib/useRequest');
@@ -258,11 +259,11 @@ test('useDatabox shares one databox between an enabled and a disabled component'
     finally {mock.timers.reset();}
 });
 
-/** A client with the connection and token events. */
+/** A client with the connection, token and reconnect events. */
 function fakeEventClient() {
     const listeners = {};
-    const client = {connected: false, authenticated: false, authTokenPayload: null};
-    for (const event of ['Connect', 'Disconnect', 'Authenticate', 'Deauthenticate']) {
+    const client = {connected: false, authenticated: false, authTokenPayload: null, nextReconnectAt: null};
+    for (const event of ['Connect', 'Disconnect', 'Authenticate', 'Deauthenticate', 'NextReconnectChange']) {
         listeners[event] = new Set();
         client['on' + event] = (listener) => listeners[event].add(listener);
         client['off' + event] = (listener) => listeners[event].delete(listener);
@@ -304,6 +305,27 @@ test('useConnected, useAuthenticated and useAuthTokenPayload follow the client',
     });
     assert.equal(container.textContent, 'off out -');
 
+    await unmount();
+    assert.equal(client.listenerCount(), 0);
+});
+
+test('useNextReconnect follows the planned reconnect of the client', async () => {
+    const client = fakeEventClient();
+    let renders = 0;
+    function Retry() {
+        renders++;
+        const at = useNextReconnect(client);
+        return React.createElement('span', null, at === null ? '-' : String(at));
+    }
+    const {container, unmount} = await render(React.createElement(Retry));
+    assert.equal(container.textContent, '-');
+    await act(async () => {client.nextReconnectAt = 1700000002000; client.emit('NextReconnectChange');});
+    assert.equal(container.textContent, '1700000002000');
+    //the other events of the client do not render it
+    await act(async () => client.emit('Connect'));
+    assert.equal(renders, 2);
+    await act(async () => {client.nextReconnectAt = null; client.emit('NextReconnectChange');});
+    assert.equal(container.textContent, '-');
     await unmount();
     assert.equal(client.listenerCount(), 0);
 });

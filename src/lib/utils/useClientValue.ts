@@ -8,7 +8,7 @@ import {Client} from "zation-client";
 import {useCallback} from "react";
 import {useSyncExternalStore} from "use-sync-external-store/shim";
 
-export type ClientEvent = 'Connect' | 'Disconnect' | 'Authenticate' | 'Deauthenticate';
+export type ClientEvent = 'Connect' | 'Disconnect' | 'Authenticate' | 'Deauthenticate' | 'NextReconnectChange';
 
 /**
  * Reads a value of the client and renders again when one of the events changes it.
